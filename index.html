@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blood Gas Report Generator</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
             justify-content: center;
-            align-items: center;
-            height: 100vh;
+            align-items: flex-start; /* Changed to align top */
+            padding-top: 5vh;      /* Added padding */
+            min-height: 100vh;
             margin: 0;
             background-color: #f4f7f6;
         }
@@ -21,7 +21,7 @@
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             width: 100%;
-            max-width: 600px;
+            max-width: 700px; /* Increased width for the report */
         }
         h1 {
             text-align: center;
@@ -29,6 +29,7 @@
         }
         textarea {
             width: 100%;
+            box-sizing: border-box; /* Added for better sizing */
             height: 120px;
             margin-bottom: 1rem;
             padding: 10px;
@@ -44,6 +45,7 @@
             border-radius: 4px;
             border: 1px solid #ccc;
             cursor: pointer;
+            box-sizing: border-box; /* Added for better sizing */
         }
         button {
             background-color: #007bff;
@@ -62,6 +64,24 @@
             min-height: 20px;
             color: #555;
         }
+        /* --- NEW STYLES FOR THE REPORT DISPLAY AREA --- */
+        .report-container {
+            margin-top: 2rem;
+            border-top: 1px solid #eee;
+            padding-top: 1rem;
+        }
+        #reportOutput {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 1rem;
+            font-family: 'Courier New', Courier, monospace; /* Monospaced font is crucial */
+            font-size: 0.85rem;
+            white-space: pre; /* Preserves all whitespace */
+            overflow-x: auto;     /* Adds a scrollbar if the content is too wide */
+            min-height: 300px;
+            color: #212529;
+        }
     </style>
 </head>
 <body>
@@ -71,16 +91,20 @@
 
         <label for="scenarioInput">Enter Clinical Scenario:</label>
         <textarea id="scenarioInput" placeholder="e.g., A 68-year-old male with a history of COPD presents with worsening shortness of breath..."></textarea>
-
+        
         <label for="gasTypeSelect">Select Sample Type:</label>
         <select id="gasTypeSelect">
             <option value="Arterial">Arterial</option>
             <option value="Venous">Venous</option>
         </select>
 
-        <button id="generateBtn">Download PDF Report</button>
+        <button id="generateBtn">Generate Report</button>
 
         <div id="status" class="status"></div>
+
+        <div class="report-container">
+            <pre id="reportOutput"></pre>
+        </div>
     </div>
 
     <script>
@@ -89,9 +113,10 @@
         const scenarioInput = document.getElementById('scenarioInput');
         const gasTypeSelect = document.getElementById('gasTypeSelect');
         const statusDiv = document.getElementById('status');
+        const reportOutput = document.getElementById('reportOutput'); // NEW: Get the report display element
 
-        // Main function to handle the generation and download
-        async function generateAndDownloadPdf() {
+        // Main function to handle the generation
+        async function generateReport() {
             // 1. Get user input
             const scenario = scenarioInput.value.trim();
             const gasType = gasTypeSelect.value;
@@ -102,9 +127,10 @@
                 return;
             }
 
-            // 2. Set loading state
+            // 2. Set loading state and clear previous report
             generateBtn.disabled = true;
             statusDiv.textContent = 'Generating report... Please wait.';
+            reportOutput.textContent = ''; // Clear the previous report
 
             try {
                 // 3. Call our Netlify serverless function
@@ -118,40 +144,27 @@
                     const errorData = await response.json();
                     throw new Error(errorData.error || 'Failed to generate report.');
                 }
-
+                
                 const data = await response.json();
                 const reportText = data.report;
 
-                // 4. Generate the PDF using jsPDF
-                statusDiv.textContent = 'Creating PDF...';
-
-                // Initialize jsPDF
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-
-                // CRITICAL: Use a monospaced font to preserve the alignment of your report
-                doc.setFont('Courier', 'normal');
-                doc.setFontSize(9); // A smaller font size often works best for fitting the text
-
-                // Add the report text to the PDF
-                doc.text(reportText, 10, 15); // x=10, y=15 are the start coordinates
-
-                // 5. Trigger the download
-                doc.save('blood-gas-report.pdf');
-                statusDiv.textContent = 'Download complete!';
+                // 4. Display the report on the page (REPLACES the PDF logic)
+                reportOutput.textContent = reportText;
+                statusDiv.textContent = 'Report generated successfully!';
 
             } catch (error) {
                 console.error('Error:', error);
                 statusDiv.textContent = `Error: ${error.message}`;
             } finally {
-                // 6. Reset the button state
+                // 5. Reset the button state
                 generateBtn.disabled = false;
-                setTimeout(() => { if (statusDiv.textContent !== 'Please enter a clinical scenario.') statusDiv.textContent = ''; }, 5000);
+                // Clear the status message after 5 seconds
+                setTimeout(() => { if (statusDiv.textContent.includes('successfully') || statusDiv.textContent.includes('Error')) statusDiv.textContent = ''; }, 5000);
             }
         }
 
         // Attach the function to the button's click event
-        generateBtn.addEventListener('click', generateAndDownloadPdf);
+        generateBtn.addEventListener('click', generateReport);
     </script>
 
 </body>
